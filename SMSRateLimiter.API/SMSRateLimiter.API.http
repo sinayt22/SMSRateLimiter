@@ -1,0 +1,6 @@
+@SMSRateLimiter.API_HostAddress = http://localhost:5139
+
+GET {{SMSRateLimiter.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
