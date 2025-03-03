@@ -1,14 +1,17 @@
 ﻿using System.Security.Cryptography.X509Certificates;
+using SMSRateLimiter.Core.Interfaces;
 
 namespace SMSRateLimiter.Core.RateLimiting;
 
-public class TokenBucket
+
+
+public class TokenBucket : ITokenBucket
 {
     private readonly long _maxBucketSize;
     private readonly double _refillRate;
     private double _currentBucketSize;
     private long _lastRefillTimestamp;
-    private readonly SemaphoreSlim _asyncLock = new SemaphoreSlim(1,1);
+    private readonly SemaphoreSlim _asyncLock = new SemaphoreSlim(1, 1);
     private DateTimeOffset LastUsed { get; set; }
     public TokenBucket(long maxBucketSize, long refillRate)
     {
@@ -38,7 +41,7 @@ public class TokenBucket
 
             return false;
         }
-        finally 
+        finally
         {
             _asyncLock.Release();
         }
@@ -64,7 +67,7 @@ public class TokenBucket
 
             return false;
         }
-        finally 
+        finally
         {
             _asyncLock.Release();
         }
