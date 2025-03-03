@@ -1,22 +1,20 @@
-﻿using System.Security.Cryptography.X509Certificates;
-using SMSRateLimiter.Core.Interfaces;
+﻿using SMSRateLimiter.Core.Interfaces;
 
 namespace SMSRateLimiter.Core.RateLimiting;
 
 
-
 public class TokenBucket : ITokenBucket
 {
-    private readonly long _maxBucketSize;
-    private readonly double _refillRate;
     private double _currentBucketSize;
     private long _lastRefillTimestamp;
     private readonly SemaphoreSlim _asyncLock = new SemaphoreSlim(1, 1);
-    private DateTimeOffset LastUsed { get; set; }
+    public DateTimeOffset LastUsed { get; set; }
+    public double RefillRate { get; private set; }
+    public long MaxBucketSize { get; private set; }
     public TokenBucket(long maxBucketSize, long refillRate)
     {
-        _maxBucketSize = maxBucketSize;
-        _refillRate = refillRate;
+        MaxBucketSize = maxBucketSize;
+        RefillRate = refillRate;
         _currentBucketSize = maxBucketSize;
         LastUsed = DateTimeOffset.UtcNow;
         _lastRefillTimestamp = LastUsed.ToUnixTimeMilliseconds();
@@ -80,8 +78,8 @@ public class TokenBucket : ITokenBucket
 
         if (elapsedSeconds > 0)
         {
-            double tokensToAdd = elapsedSeconds * _refillRate;
-            _currentBucketSize = Math.Min(_maxBucketSize, _currentBucketSize + tokensToAdd);
+            double tokensToAdd = elapsedSeconds * RefillRate;
+            _currentBucketSize = Math.Min(MaxBucketSize, _currentBucketSize + tokensToAdd);
             _lastRefillTimestamp = now;
         }
     }

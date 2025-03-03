@@ -3,7 +3,7 @@ using SMSRateLimiter.Core.Interfaces;
 using SMSRateLimiter.Core.Services;
 using Xunit;
 
-namespace SMSRateLimiter.Tests;
+namespace SMSRateLimiter.Core.Services.Tests;
 
 public class RateLimiterServiceTests
 {
