@@ -1,4 +1,4 @@
-﻿namespace SMSRateLimiter.TokenBucket;
+﻿namespace SMSRateLimiter.Core.RateLimiting;
 
 public class TokenBucket
 {
