@@ -53,7 +53,9 @@ public class LocalTokenBucketProviderTests
     }
 
     [Theory]
+#pragma warning disable xUnit1012 // Null should only be used for nullable parameters
     [InlineData(null)]
+#pragma warning restore xUnit1012 // Null should only be used for nullable parameters
     [InlineData("")]
     public void GetPhoneNumberBucket_WithInvalidPhoneNumber_ThrowsArgumentException(string phoneNumber)
     {
