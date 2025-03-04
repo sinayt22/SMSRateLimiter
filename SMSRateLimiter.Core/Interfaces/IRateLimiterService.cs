@@ -6,4 +6,3 @@ public interface IRateLimiterService
 {
     Task<bool> AllowRequest(string phoneNumber);
 }
-

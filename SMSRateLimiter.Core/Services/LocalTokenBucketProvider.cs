@@ -2,23 +2,21 @@ using System.Collections.Concurrent;
 using SMSRateLimiter.Core.Configuration;
 using SMSRateLimiter.Core.Interfaces;
 using SMSRateLimiter.Core.RateLimiting;
+using Microsoft.Extensions.Hosting;
 
 namespace SMSRateLimiter.Core.Services;
 
-public class LocalTokenBucketProvider : ITokenBucketProvider
+public class LocalTokenBucketProvider : ITokenBucketProvider, IHostedService, IDisposable
 {
     // we can convert to use the interface and use the factory pattern to generate them
     // but keeping it simple for now and using the concrete implementation
     private readonly ConcurrentDictionary<string, TokenBucket> _phoneNumberBuckets;
     private readonly TokenBucket _globalBucket;
-    private readonly ICleanupService _cleanupService;
     private readonly RateLimiterConfig _config;
+    private Timer? _cleanupTimer;
 
-    public LocalTokenBucketProvider(
-        ICleanupService cleanupService,
-        RateLimiterConfig config)
+    public LocalTokenBucketProvider(RateLimiterConfig config)
     {
-        _cleanupService = cleanupService;
         _config = config;
         _phoneNumberBuckets = new ConcurrentDictionary<string, TokenBucket>();
         _globalBucket = new TokenBucket(maxBucketSize: _config.GlobalRateMaxRateLimit,
@@ -39,7 +37,6 @@ public class LocalTokenBucketProvider : ITokenBucketProvider
 
         var bucket = _phoneNumberBuckets.GetOrAdd(phoneNumber, _ => CreatePhoneNumberBucket(phoneNumber));
 
-        _cleanupService.RegisterForCleanup(phoneNumber, bucket);
         return bucket;
 
     }
@@ -50,6 +47,42 @@ public class LocalTokenBucketProvider : ITokenBucketProvider
                                     maxBucketSize: _config.PhoneNumberMaxRateLimit);
 
         return bucket;
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _cleanupTimer = new Timer(
+            DoCleanup, null, 
+            _config.BucketCleanupIntervalMilliSec, 
+            _config.BucketCleanupIntervalMilliSec
+            );
+        return Task.CompletedTask;
+    }
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _cleanupTimer?.Change(Timeout.Infinite, 0);
+        return Task.CompletedTask;
+    }
+
+    private void DoCleanup(object? state)
+    {
+        var timeoutThreshold = DateTime.UtcNow.AddMilliseconds(-_config.InactiveBucketTimeoutMilliSec);
+        
+        foreach (var phoneNumber in _phoneNumberBuckets.Keys)
+        {
+            if (_phoneNumberBuckets.TryGetValue(phoneNumber, out var bucket))
+            {
+                if (bucket.LastUsed < timeoutThreshold)
+                {
+                    _phoneNumberBuckets.TryRemove(phoneNumber, out _);
+                }
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _cleanupTimer?.Dispose();
     }
 }
 
