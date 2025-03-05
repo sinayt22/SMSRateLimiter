@@ -5,6 +5,7 @@ namespace SMSRateLimiter.Core.Services;
 public class RateLimiterService : IRateLimiterService
 {
     private readonly ITokenBucketProvider _tokenBucketProvider;
+    private readonly SemaphoreSlim _serviceLock = new SemaphoreSlim(1, 1);    
     public RateLimiterService(ITokenBucketProvider tokenBucketProvider)
     {
         _tokenBucketProvider = tokenBucketProvider;
@@ -13,17 +14,25 @@ public class RateLimiterService : IRateLimiterService
     {
         var phoneBucket = _tokenBucketProvider.GetPhoneNumberBucket(phoneNumber);
         var globalBucket = _tokenBucketProvider.GetGlobalBucket();
-
-        var phoneTokens = await phoneBucket.GetCurrentTokensAsync();
-        var globalTokens = await globalBucket.GetCurrentTokensAsync();
-
-        if (phoneTokens >= 1 && globalTokens >= 1)
+        
+        await _serviceLock.WaitAsync();
+        
+        try
         {
-            await phoneBucket.AllowRequestAsync(1);
-            await globalBucket.AllowRequestAsync(1);
-            return true;
-        }
+            var phoneTokens = await phoneBucket.GetCurrentTokensAsync();
+            var globalTokens = await globalBucket.GetCurrentTokensAsync();
+            if (phoneTokens >= 1 && globalTokens >= 1)
+            {
+                await phoneBucket.AllowRequestAsync(1);
+                await globalBucket.AllowRequestAsync(1);
+                return true;
+            }
 
-        return false;
+            return false;
+        }
+        finally
+        {
+            _serviceLock.Release();
+        }
     }
 }
