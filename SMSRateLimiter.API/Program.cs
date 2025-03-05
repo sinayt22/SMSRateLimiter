@@ -1,4 +1,3 @@
-
 using SMSRateLimiter.API.Middleware;
 using SMSRateLimiter.Core.Configuration;
 using SMSRateLimiter.Core.Interfaces;
@@ -6,14 +5,18 @@ using SMSRateLimiter.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngularApp",
+        builder => builder
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials());
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-// builder.Services.AddHttpsRedirection(options =>
-// {
-//     options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
-//     options.HttpsPort = 7141; // Or your desired HTTPS port
-// });
 
 builder.Services.AddSwaggerGen(c => 
 {
@@ -28,15 +31,6 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAngularApp",
-        builder => builder
-            .WithOrigins("http://localhost:4200")
-            .AllowAnyMethod()
-            .AllowAnyHeader());
-});
-
 var rateLimiterConfig = new RateLimiterConfig();
 builder.Configuration.GetSection("RateLimiter").Bind(rateLimiterConfig);
 
@@ -45,23 +39,25 @@ builder.Services.AddSingleton<ITokenBucketProvider, LocalTokenBucketProvider>();
 builder.Services.AddSingleton<IRateLimiterService, RateLimiterService>();
 builder.Services.AddHostedService(sp => (LocalTokenBucketProvider)sp.GetRequiredService<ITokenBucketProvider>());
 
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => 
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "SMS Rate Limiter API v1");
-    c.RoutePrefix = string.Empty; // This makes Swagger UI available at the root
-});
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "SMS Rate Limiter API v1");
+        c.RoutePrefix = string.Empty; 
+    });
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseStaticFiles();
+app.UseRouting(); 
 app.UseCors("AllowAngularApp");
-// app.UseHttpsRedirection();
+
+
 app.MapControllers();
 
 app.Run();
