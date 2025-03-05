@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using SMSRateLimiter.API.Controllers;
 using SMSRateLimiter.API.Models;
@@ -11,12 +12,14 @@ namespace SMSRateLimiter.API.Controllers.Tests;
 public class RateLimiterControllerTests
 {
     private readonly Mock<IRateLimiterService> _rateLimiterServiceMock;
+    private readonly Mock<ILogger<RateLimiterController>> _loggerMock;
     private readonly RateLimiterController _controller;
 
     public RateLimiterControllerTests()
     {
         _rateLimiterServiceMock = new Mock<IRateLimiterService>();
-        _controller = new RateLimiterController(_rateLimiterServiceMock.Object);
+        _loggerMock = new Mock<ILogger<RateLimiterController>>();
+        _controller = new RateLimiterController(_rateLimiterServiceMock.Object, _loggerMock.Object);
     }
 
     [Fact]
@@ -148,7 +151,7 @@ public async Task GetBucketStatus_WithValidPhoneNumber_ReturnsOkWithBucketStatus
         .Returns(expectedLastUsed);
     
     // Create a new controller with our mocked services
-    var controller = new RateLimiterController(_rateLimiterServiceMock.Object);
+    var controller = new RateLimiterController(_rateLimiterServiceMock.Object, _loggerMock.Object);
     
     // Setup HttpContext and RequestServices to return our mocked provider
     var httpContext = new DefaultHttpContext();
@@ -187,7 +190,7 @@ public async Task GetBucketStatus_WithValidPhoneNumber_ReturnsOkWithBucketStatus
 public async Task GetBucketStatus_WithInvalidPhoneNumber_ReturnsBadRequest(string phoneNumber)
 {
     // Arrange
-    var controller = new RateLimiterController(_rateLimiterServiceMock.Object);
+    var controller = new RateLimiterController(_rateLimiterServiceMock.Object, _loggerMock.Object);
     
     // Act
     var result = await controller.GetBucketStatus(phoneNumber);
@@ -203,7 +206,7 @@ public async Task GetBucketStatus_WithInvalidPhoneNumberFormat_ReturnsBadRequest
 {
     // Arrange
     var invalidPhoneNumber = "invalid-phone";
-    var controller = new RateLimiterController(_rateLimiterServiceMock.Object);
+    var controller = new RateLimiterController(_rateLimiterServiceMock.Object, _loggerMock.Object);
     
     // Act
     var result = await controller.GetBucketStatus(invalidPhoneNumber);

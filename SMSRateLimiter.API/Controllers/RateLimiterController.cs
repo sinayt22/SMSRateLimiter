@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using SMSRateLimiter.API.Models;
 using SMSRateLimiter.Core.Interfaces;
 using System.Text.RegularExpressions;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace SMSRateLimiter.API.Controllers;
 
@@ -13,15 +16,21 @@ namespace SMSRateLimiter.API.Controllers;
 public class RateLimiterController : ControllerBase
 {
     private readonly IRateLimiterService _rateLimiterService;
+    private readonly ILogger<RateLimiterController> _logger;
     private static readonly Regex PhoneRegex = new(@"^\+?[1-9]\d{1,14}$", RegexOptions.Compiled);
+    private static readonly HttpClient _httpClient = new HttpClient();
 
     /// <summary>
     /// Creates a new instance of the RateLimiterController
     /// </summary>
     /// <param name="rateLimiterService">The rate limiter service</param>
-    public RateLimiterController(IRateLimiterService rateLimiterService)
+    /// <param name="logger">The logger</param>
+    public RateLimiterController(
+        IRateLimiterService rateLimiterService,
+        ILogger<RateLimiterController> logger)
     {
         _rateLimiterService = rateLimiterService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -47,6 +56,17 @@ public class RateLimiterController : ControllerBase
         }
 
         var canSendMessage = await _rateLimiterService.AllowRequest(request.PhoneNumber);
+        
+        // Record the check result for metrics
+        try
+        {
+            await RecordMetricAsync(request.PhoneNumber, canSendMessage);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail the request if metrics recording fails
+            _logger.LogError(ex, "Failed to record metric for {PhoneNumber}", request.PhoneNumber);
+        }
 
         return Ok(new RateLimitCheckResponse
         {
@@ -98,5 +118,36 @@ public class RateLimiterController : ControllerBase
             PhoneNumberLastUsed = phoneBucket.LastUsed,
             GlobalLastUsed = globalBucket.LastUsed
         });
+    }
+    
+    /// <summary>
+    /// Records a metric for a rate limit check
+    /// </summary>
+    private async Task RecordMetricAsync(string phoneNumber, bool allowed)
+    {
+        // Create the metric object
+        var metric = new
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            PhoneNumber = phoneNumber,
+            RequestCount = 1,
+            AcceptedCount = allowed ? 1 : 0,
+            RejectedCount = allowed ? 0 : 1
+        };
+        
+        // Get the base address from current request
+        var baseAddress = $"{Request.Scheme}://{Request.Host}";
+        
+        // Send to metrics endpoint
+        var response = await _httpClient.PostAsJsonAsync(
+            $"{baseAddress}/api/Metrics/messages", 
+            metric);
+            
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to record metric: {StatusCode} - {Error}", 
+                response.StatusCode, error);
+        }
     }
 }

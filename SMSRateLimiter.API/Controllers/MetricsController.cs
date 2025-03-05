@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Cors;
 using SMSRateLimiter.Core.Interfaces;
 using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
 
 namespace SMSRateLimiter.API.Controllers;
 
@@ -15,18 +16,9 @@ public class MetricsController : ControllerBase
     private readonly ITokenBucketProvider _tokenBucketProvider;
     private readonly ILogger<MetricsController> _logger;
     
-    // In a real application, we would use a proper metrics store
-    // For demo purposes, we'll use an in-memory collection
-    private static readonly List<MessageMetric> _messageMetrics = new();
-    private static readonly object _metricsLock = new();
+    // Thread-safe collection to store metrics
+    private static readonly ConcurrentBag<MessageMetric> _messageMetrics = new();
     
-    private static readonly List<string> _samplePhoneNumbers = new()
-    {
-        "+14155551212", "+14155551213", "+14155551214",
-        "+16505551212", "+16505551213",
-        "+12125551212", "+12125551213", "+12125551214", "+12125551215"
-    };
-
     /// <summary>
     /// Creates a new instance of the MetricsController
     /// </summary>
@@ -38,12 +30,6 @@ public class MetricsController : ControllerBase
     {
         _tokenBucketProvider = tokenBucketProvider;
         _logger = logger;
-        
-        // Initialize with some sample data if empty
-        if (_messageMetrics.Count == 0)
-        {
-            InitializeSampleData();
-        }
     }
 
     /// <summary>
@@ -65,10 +51,10 @@ public class MetricsController : ControllerBase
             metric.Timestamp = DateTimeOffset.UtcNow;
         }
         
-        lock (_metricsLock)
-        {
-            _messageMetrics.Add(metric);
-        }
+        // Add to our metrics collection
+        _messageMetrics.Add(metric);
+        
+        _logger.LogInformation($"Received metric for {metric.PhoneNumber}: {metric.RequestCount} requests, {metric.AcceptedCount} accepted, {metric.RejectedCount} rejected");
         
         return Ok();
     }
@@ -86,92 +72,103 @@ public class MetricsController : ControllerBase
         [FromQuery] DateTimeOffset? startDate = null,
         [FromQuery] DateTimeOffset? endDate = null)
     {
-        lock (_metricsLock)
+        var filteredMetrics = _messageMetrics.AsEnumerable();
+        
+        // Apply filters
+        if (!string.IsNullOrWhiteSpace(phoneNumber))
         {
-            var filteredMetrics = _messageMetrics.AsEnumerable();
-            
-            if (!string.IsNullOrWhiteSpace(phoneNumber))
-            {
-                filteredMetrics = filteredMetrics.Where(m => m.PhoneNumber == phoneNumber);
-            }
-            
-            if (startDate.HasValue)
-            {
-                filteredMetrics = filteredMetrics.Where(m => m.Timestamp >= startDate.Value);
-            }
-            
-            if (endDate.HasValue)
-            {
-                filteredMetrics = filteredMetrics.Where(m => m.Timestamp <= endDate.Value);
-            }
-            
-            return Ok(filteredMetrics.ToList());
+            filteredMetrics = filteredMetrics.Where(m => m.PhoneNumber == phoneNumber);
         }
+        
+        if (startDate.HasValue)
+        {
+            filteredMetrics = filteredMetrics.Where(m => m.Timestamp >= startDate.Value);
+        }
+        
+        if (endDate.HasValue)
+        {
+            filteredMetrics = filteredMetrics.Where(m => m.Timestamp <= endDate.Value);
+        }
+        
+        // Limit the result to the last 1000 entries if no date range is specified
+        // to prevent too much data being sent
+        if (!startDate.HasValue && !endDate.HasValue)
+        {
+            filteredMetrics = filteredMetrics.OrderByDescending(m => m.Timestamp).Take(1000);
+        }
+        
+        return Ok(filteredMetrics.ToList());
     }
 
     /// <summary>
-    /// Gets a list of all phone numbers
+    /// Gets a list of all phone numbers that have metrics
     /// </summary>
     /// <returns>List of phone numbers</returns>
     [HttpGet("phones")]
     public IActionResult GetPhoneNumbers()
     {
-        lock (_metricsLock)
-        {
-            var phoneNumbers = _messageMetrics
-                .Select(m => m.PhoneNumber)
-                .Distinct()
-                .OrderBy(p => p)
-                .ToList();
-            
-            return Ok(phoneNumbers);
-        }
-    }
-
-    // Generate some sample metrics data for demonstration
-    private void InitializeSampleData()
-    {
-        var random = new Random(42); // Deterministic for demo
-        var now = DateTimeOffset.UtcNow;
+        var phoneNumbers = _messageMetrics
+            .Select(m => m.PhoneNumber)
+            .Distinct()
+            .OrderBy(p => p)
+            .ToList();
         
-        // Generate metrics for the last 24 hours
-        for (int hour = 0; hour < 24; hour++)
-        {
-            var hourTimestamp = now.AddHours(-24 + hour);
-            
-            // For each phone number
-            foreach (var phoneNumber in _samplePhoneNumbers)
+        return Ok(phoneNumbers);
+    }
+    
+    /// <summary>
+    /// Gets aggregate metrics for monitoring
+    /// </summary>
+    /// <param name="minutes">Number of minutes to look back (default: 10)</param>
+    /// <returns>Aggregate metrics</returns>
+    [HttpGet("summary")]
+    public IActionResult GetMetricsSummary([FromQuery] int minutes = 10)
+    {
+        var cutoffTime = DateTimeOffset.UtcNow.AddMinutes(-minutes);
+        var recentMetrics = _messageMetrics.Where(m => m.Timestamp >= cutoffTime);
+        
+        // Group by phone number
+        var phoneGroups = recentMetrics
+            .GroupBy(m => m.PhoneNumber)
+            .Select(g => new
             {
-                // Generate metrics for each 5-minute interval
-                for (int minute = 0; minute < 60; minute += 5)
-                {
-                    var timestamp = hourTimestamp.AddMinutes(minute);
-                    
-                    // Base request count varies by time of day
-                    var timeOfDayFactor = 0.5 + Math.Sin((hour / 24.0) * 2 * Math.PI) * 0.5;
-                    var baseRequests = (int)(10 * timeOfDayFactor);
-                    
-                    // Random fluctuation
-                    var requests = Math.Max(0, baseRequests + random.Next(-5, 6));
-                    
-                    // Some rejected requests based on rate limiting
-                    var rejected = Math.Min(requests, random.Next(4) == 0 ? random.Next(1, 4) : 0);
-                    var accepted = requests - rejected;
-                    
-                    if (requests > 0)
-                    {
-                        _messageMetrics.Add(new MessageMetric
-                        {
-                            Timestamp = timestamp,
-                            PhoneNumber = phoneNumber,
-                            RequestCount = requests,
-                            AcceptedCount = accepted,
-                            RejectedCount = rejected
-                        });
-                    }
-                }
-            }
-        }
+                PhoneNumber = g.Key,
+                TotalRequests = g.Sum(m => m.RequestCount),
+                AcceptedRequests = g.Sum(m => m.AcceptedCount),
+                RejectedRequests = g.Sum(m => m.RejectedCount)
+            })
+            .ToList();
+        
+        // Calculate global totals
+        var globalTotals = new
+        {
+            TotalRequests = phoneGroups.Sum(g => g.TotalRequests),
+            AcceptedRequests = phoneGroups.Sum(g => g.AcceptedRequests),
+            RejectedRequests = phoneGroups.Sum(g => g.RejectedRequests),
+            PhoneNumberCount = phoneGroups.Count,
+            TimeRangeMinutes = minutes
+        };
+        
+        return Ok(new
+        {
+            Global = globalTotals,
+            PhoneNumbers = phoneGroups
+        });
+    }
+    
+    /// <summary>
+    /// Clears all stored metrics (for testing/debug purposes)
+    /// </summary>
+    /// <returns>Success response</returns>
+    [HttpDelete("clear")]
+    public IActionResult ClearMetrics()
+    {
+        var oldCount = _messageMetrics.Count;
+        
+        // Clear all metrics - create a new empty collection
+        while (_messageMetrics.TryTake(out _)) { }
+        
+        return Ok(new { message = $"Cleared {oldCount} metrics" });
     }
 }
 
