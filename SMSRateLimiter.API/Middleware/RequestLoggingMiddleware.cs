@@ -15,8 +15,6 @@ public class RequestLoggingMiddleware
     {
         _logger.LogInformation($"Request {context.Request.Method} {context.Request.Path}");
 
-        context.Response.Body = new MemoryStream();
-
         await _next(context);
 
         _logger.LogInformation($"Response {context.Response.StatusCode}");

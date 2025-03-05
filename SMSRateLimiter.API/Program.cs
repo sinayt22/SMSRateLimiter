@@ -9,17 +9,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddHttpsRedirection(options =>
-{
-    options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
-    options.HttpsPort = 7141; // Or your desired HTTPS port
-});
+// builder.Services.AddHttpsRedirection(options =>
+// {
+//     options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
+//     options.HttpsPort = 7141; // Or your desired HTTPS port
+// });
 
 builder.Services.AddSwaggerGen(c => 
 {
     c.SwaggerDoc("v1", new() { Title = "SMS Rate Limiter API", Version = "v1" });
     
-    // Include XML comments
+    // Enable XML Documentation
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if(File.Exists(xmlPath))
@@ -51,13 +51,10 @@ if (app.Environment.IsDevelopment())
 });
 }
 
-
-
-
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 app.MapControllers();
 
 app.Run();
