@@ -48,9 +48,55 @@ public class RateLimiterController : ControllerBase
 
         var canSendMessage = await _rateLimiterService.AllowRequest(request.PhoneNumber);
 
-        return Ok(new RateLimitCheckResponse {
+        return Ok(new RateLimitCheckResponse
+        {
             PhoneNumber = request.PhoneNumber,
             Allowed = canSendMessage
+        });
+    }
+
+    /// <summary>
+    /// Gets the current status of rate limiting buckets for a phone number
+    /// </summary>
+    /// <param name="phoneNumber">The phone number to check</param>
+    /// <returns>The current status of phone number and global buckets</returns>
+    /// <response code="200">Returns the bucket status information</response>
+    /// <response code="400">If the phone number is invalid or empty</response>
+    [HttpGet("status/{phoneNumber}")]
+    [ProducesResponseType(typeof(BucketStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetBucketStatus(string phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            return BadRequest(new ErrorResponse { Message = "Phone number is required" });
+        }
+
+        if (!PhoneRegex.IsMatch(phoneNumber))
+        {
+            return BadRequest(new ErrorResponse { Message = "Invalid phone number format" });
+        }
+
+        // Get the buckets
+        var tokenBucketProvider = HttpContext.RequestServices.GetRequiredService<ITokenBucketProvider>();
+        var phoneBucket = tokenBucketProvider.GetPhoneNumberBucket(phoneNumber);
+        var globalBucket = tokenBucketProvider.GetGlobalBucket();
+
+        // Get current tokens
+        var phoneTokens = await phoneBucket.GetCurrentTokensAsync();
+        var globalTokens = await globalBucket.GetCurrentTokensAsync();
+
+        return Ok(new BucketStatusResponse
+        {
+            PhoneNumber = phoneNumber,
+            PhoneNumberCurrentTokens = phoneTokens,
+            PhoneNumberMaxTokens = phoneBucket.MaxBucketSize,
+            PhoneNumberRefillRate = phoneBucket.RefillRate,
+            GlobalCurrentTokens = globalTokens,
+            GlobalMaxTokens = globalBucket.MaxBucketSize,
+            GlobalRefillRate = globalBucket.RefillRate,
+            PhoneNumberLastUsed = phoneBucket.LastUsed,
+            GlobalLastUsed = globalBucket.LastUsed
         });
     }
 }
