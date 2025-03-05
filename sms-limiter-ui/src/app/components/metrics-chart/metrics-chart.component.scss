@@ -1,0 +1,25 @@
+.chart-container {
+    position: relative;
+    min-height: 350px;
+  }
+  
+  .no-data-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.7);
+  }
+  
+  .no-data-message {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-style: italic;
+    color: rgba(0, 0, 0, 0.54);
+  }

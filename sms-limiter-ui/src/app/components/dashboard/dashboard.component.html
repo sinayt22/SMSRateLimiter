@@ -1,0 +1,100 @@
+<!-- src/app/components/dashboard/dashboard.component.html -->
+<div class="dashboard-container">
+  <app-navigation></app-navigation>
+  
+  <div class="dashboard-content">
+    <div class="dashboard-header">
+      <h1>SMS Rate Limiter Dashboard</h1>
+      <div class="actions">
+        <button mat-raised-button color="primary" (click)="onRefreshData()">
+          <mat-icon>refresh</mat-icon> Refresh
+        </button>
+      </div>
+    </div>
+    
+    <app-filter-panel 
+      [criteria]="filterCriteria"
+      (criteriaChange)="onFilterChange($event)">
+    </app-filter-panel>
+    
+    <div class="dashboard-metrics">
+      <!-- Global Metrics -->
+      <div class="global-metrics">
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>Global Rate Limiting Status</mat-card-title>
+          </mat-card-header>
+          <mat-card-content *ngIf="globalMetrics">
+            <div class="global-metrics-grid">
+              <div class="metric-item">
+                <div class="metric-label">Total Requests</div>
+                <div class="metric-value">{{ globalMetrics.totalRequests | number }}</div>
+              </div>
+              
+              <div class="metric-item">
+                <div class="metric-label">Requests/sec</div>
+                <div class="metric-value">{{ globalMetrics.requestsPerSecond | number:'1.1-1' }}</div>
+              </div>
+              
+              <div class="metric-item">
+                <div class="metric-label">Accepted</div>
+                <div class="metric-value">{{ globalMetrics.acceptedRequests | number }}</div>
+              </div>
+              
+              <div class="metric-item">
+                <div class="metric-label">Rejected</div>
+                <div class="metric-value">{{ globalMetrics.rejectedRequests | number }}</div>
+              </div>
+            </div>
+            
+            <div class="metric-progress-container">
+              <div class="metric-progress-label">
+                <div>Acceptance Rate</div>
+                <div>{{ getGlobalAcceptPercent() | number:'1.1-1' }}%</div>
+              </div>
+              <mat-progress-bar 
+                [value]="getGlobalAcceptPercent()" 
+                [color]="getGlobalAcceptPercent() < 80 ? 'warn' : 'primary'">
+              </mat-progress-bar>
+            </div>
+            
+            <div class="metric-progress-container">
+              <div class="metric-progress-label">
+                <div>Global Bucket Tokens</div>
+                <div>{{ globalMetrics.currentTokens | number:'1.1-1' }} / {{ globalMetrics.maxTokens }}</div>
+              </div>
+              <mat-progress-bar 
+                [value]="getGlobalTokenPercent()" 
+                [color]="getGlobalTokenPercent() < 25 ? 'warn' : 'primary'">
+              </mat-progress-bar>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-content *ngIf="!globalMetrics">
+            <div class="no-data-message">No global metrics available</div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+      
+      <!-- Time series chart -->
+      <div class="metrics-card">
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>Messages Per Minute</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <app-metrics-chart [timeSeriesData]="timeSeriesData"></app-metrics-chart>
+          </mat-card-content>
+        </mat-card>
+      </div>
+      
+      <!-- Phone number metrics section -->
+      <div class="metrics-section">
+        <h2>Phone Number Metrics</h2>
+        <app-per-number-metrics 
+          [phoneMetrics]="phoneMetrics">
+        </app-per-number-metrics>
+      </div>
+    </div>
+  </div>
+</div>

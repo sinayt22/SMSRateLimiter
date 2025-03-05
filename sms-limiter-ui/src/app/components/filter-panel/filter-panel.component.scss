@@ -1,0 +1,44 @@
+.filter-panel {
+    margin-bottom: 20px;
+  }
+  
+  .filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -10px;
+  }
+  
+  .filter-column {
+    flex: 1;
+    min-width: 300px;
+    padding: 0 10px;
+    
+    mat-form-field {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+  }
+  
+  .filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    height: 36px;
+    align-items: center;
+  }
+  
+  @media (max-width: 960px) {
+    .filter-column {
+      flex: 0 0 50%;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    .filter-form {
+      flex-direction: column;
+    }
+    
+    .filter-column {
+      flex: 0 0 100%;
+    }
+  }

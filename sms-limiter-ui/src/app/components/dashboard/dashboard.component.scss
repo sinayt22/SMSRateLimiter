@@ -1,0 +1,110 @@
+/* src/app/components/dashboard/dashboard.component.scss */
+.dashboard-container {
+  display: flex;
+  height: 100%;
+}
+
+.dashboard-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  
+  h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 500;
+  }
+  
+  .actions {
+    display: flex;
+    gap: 10px;
+  }
+}
+
+.dashboard-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.global-metrics {
+  margin-bottom: 16px;
+  
+  .global-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .metric-item {
+    text-align: center;
+    
+    .metric-label {
+      font-size: 14px;
+      color: rgba(0, 0, 0, 0.54);
+      margin-bottom: 4px;
+    }
+    
+    .metric-value {
+      font-size: 24px;
+      font-weight: 500;
+    }
+  }
+  
+  .metric-progress-container {
+    margin-bottom: 16px;
+    
+    .metric-progress-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+  }
+}
+
+.metrics-card {
+  width: 100%;
+  margin-bottom: 16px;
+  
+  mat-card {
+    padding: 16px;
+  }
+}
+
+.metrics-section {
+  margin-bottom: 24px;
+  
+  h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .global-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

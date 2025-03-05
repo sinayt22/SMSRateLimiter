@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@angular/animations": "^19.2.0",
+    "@angular/cdk": "^19.2.1",
+    "@angular/material": "^19.2.1",
+    "@angular/material-moment-adapter": "^19.2.1",
+    "highcharts": "^12.1.2",
+    "moment": "^2.30.1"
+  }
+}

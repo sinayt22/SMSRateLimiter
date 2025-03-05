@@ -1,0 +1,69 @@
+<!-- src/app/components/per-number-metrics/per-number-metrics.component.html -->
+<div class="metrics-table-container">
+  <table mat-table [dataSource]="sortedData" matSort (matSortChange)="sortData($event)" class="metrics-table">
+    <!-- Phone Number Column -->
+    <ng-container matColumnDef="phoneNumber">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> Phone Number </th>
+      <td mat-cell *matCellDef="let phone"> {{ phone.phoneNumber }} </td>
+    </ng-container>
+    
+    <!-- Total Requests Column -->
+    <ng-container matColumnDef="totalRequests">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> Total Requests </th>
+      <td mat-cell *matCellDef="let phone"> {{ phone.totalRequests | number }} </td>
+    </ng-container>
+    
+    <!-- Accepted Requests Column -->
+    <ng-container matColumnDef="acceptedRequests">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> Accepted </th>
+      <td mat-cell *matCellDef="let phone"> {{ phone.acceptedRequests | number }} </td>
+    </ng-container>
+    
+    <!-- Rejected Requests Column -->
+    <ng-container matColumnDef="rejectedRequests">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> Rejected </th>
+      <td mat-cell *matCellDef="let phone"> {{ phone.rejectedRequests | number }} </td>
+    </ng-container>
+    
+    <!-- Percent Accepted Column -->
+    <ng-container matColumnDef="percentAccepted">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> % Accepted </th>
+      <td mat-cell *matCellDef="let phone"> 
+        <div class="progress-container">
+          <div class="progress-bar" [style.width.%]="phone.percentAccepted"></div>
+          <span>{{ phone.percentAccepted | number:'1.1-1' }}%</span>
+        </div>
+      </td>
+    </ng-container>
+    
+    <!-- Requests Per Second Column -->
+    <ng-container matColumnDef="requestsPerSecond">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> Req/sec </th>
+      <td mat-cell *matCellDef="let phone"> {{ phone.requestsPerSecond | number:'1.1-1' }} </td>
+    </ng-container>
+    
+    <!-- Current Tokens Column -->
+    <ng-container matColumnDef="currentTokens">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header> Tokens </th>
+      <td mat-cell *matCellDef="let phone">
+        <div *ngIf="phone.maxTokens > 0" class="token-container">
+          <div class="token-bar" [style.width.%]="getTokenPercent(phone)" 
+               [ngClass]="{
+                 'low': getTokenPercent(phone) < 25,
+                 'medium': getTokenPercent(phone) >= 25 && getTokenPercent(phone) < 75,
+                 'high': getTokenPercent(phone) >= 75
+               }"></div>
+          <span>{{ phone.currentTokens | number:'1.1-1' }} / {{ phone.maxTokens }}</span>
+        </div>
+        <span *ngIf="phone.maxTokens === 0">N/A</span>
+      </td>
+    </ng-container>
+    
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+  
+  <div *ngIf="phoneMetrics.length === 0" class="no-data">
+    No phone number metrics available for the selected time period.
+  </div>
+</div>

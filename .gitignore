@@ -29,3 +29,26 @@ bld/
 .vscode
 
 SMSRateLimiter.LoadTest/LoadTestResults
+
+# Angular specific
+/sms-rate-limiter-ui/node_modules/
+/sms-rate-limiter-ui/.angular/
+/sms-rate-limiter-ui/dist/
+/sms-rate-limiter-ui/.npm/
+/sms-rate-limiter-ui/coverage/
+/sms-rate-limiter-ui/.sass-cache/
+/sms-rate-limiter-ui/.angular/cache/
+
+# IDEs and editors
+/sms-rate-limiter-ui/.idea/
+/sms-rate-limiter-ui/.vscode/
+/sms-rate-limiter-ui/*.sublime-workspace
+/sms-rate-limiter-ui/.project
+/sms-rate-limiter-ui/.classpath
+/sms-rate-limiter-ui/.c9/
+
+# Misc
+/sms-rate-limiter-ui/.DS_Store
+/sms-rate-limiter-ui/npm-debug.log
+/sms-rate-limiter-ui/yarn-error.log
+/sms-rate-limiter-ui/.env
