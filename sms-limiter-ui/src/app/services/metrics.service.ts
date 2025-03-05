@@ -1,15 +1,15 @@
 // src/app/services/metrics.service.ts
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, interval, of } from 'rxjs';
+import { Injectable, OnDestroy } from '@angular/core';
+import { BehaviorSubject, Observable, interval, of, Subscription } from 'rxjs';
 import { ApiService } from './api.service';
 import { FilterCriteria } from '../models/filter-criteria';
 import { MessageMetrics, MetricTimeSeries, PhoneNumberMetrics, GlobalMetrics, BucketStatus } from '../models/metrics';
-import { switchMap, map, tap, catchError } from 'rxjs/operators';
+import { switchMap, map, tap, catchError, finalize } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
 })
-export class MetricsService {
+export class MetricsService implements OnDestroy {
   // Observable sources
   private messageMetricsSubject = new BehaviorSubject<MessageMetrics[]>([]);
   private globalMetricsSubject = new BehaviorSubject<GlobalMetrics | null>(null);
@@ -18,7 +18,7 @@ export class MetricsService {
   private filterCriteriaSubject = new BehaviorSubject<FilterCriteria>({
     startDate: new Date(new Date().getTime() - 3600000), // Last hour
     endDate: new Date(),
-    refreshInterval: 30000 // 30 seconds
+    refreshInterval: 5000 // 5 seconds for more responsive dashboard
   });
   
   // Observable streams
@@ -28,16 +28,24 @@ export class MetricsService {
   readonly timeSeries$ = this.timeSeriesSubject.asObservable();
   readonly filterCriteria$ = this.filterCriteriaSubject.asObservable();
   
-  private refreshSubscription: any;
+  // Flag to indicate data is being refreshed
+  private isRefreshing = false;
+  private refreshSubscription: Subscription | null = null;
   private globalBucketStatus: Partial<BucketStatus> | null = null;
 
   constructor(private apiService: ApiService) {
+    console.log('MetricsService initialized');
     // Start with default refresh
     this.setupRefreshInterval();
   }
 
+  ngOnDestroy(): void {
+    this.cleanupSubscriptions();
+  }
+
   // Update filter criteria and refresh data
   updateFilterCriteria(criteria: Partial<FilterCriteria>): void {
+    console.log('Updating filter criteria:', criteria);
     const currentCriteria = this.filterCriteriaSubject.value;
     const newCriteria = { ...currentCriteria, ...criteria };
     this.filterCriteriaSubject.next(newCriteria);
@@ -45,6 +53,7 @@ export class MetricsService {
     // If the refresh interval changed, update the timer
     if (criteria.refreshInterval !== undefined && 
         criteria.refreshInterval !== currentCriteria.refreshInterval) {
+      console.log('Refresh interval changed to:', criteria.refreshInterval);
       this.setupRefreshInterval();
     }
     
@@ -54,38 +63,80 @@ export class MetricsService {
 
   // Fetch fresh data based on current filter criteria
   refreshData(): void {
+    if (this.isRefreshing) {
+      console.log('Already refreshing, skipping this refresh cycle');
+      return;
+    }
+    
+    this.isRefreshing = true;
+    console.log('Refreshing data at:', new Date().toISOString());
     const criteria = this.filterCriteriaSubject.value;
+    
+    // Extend timeout for debugging
+    setTimeout(() => {
+      if (this.isRefreshing) {
+        console.warn('Refresh operation is taking too long (>10s), might be blocked');
+        this.isRefreshing = false;
+      }
+    }, 10000);
     
     this.apiService.getMessageMetrics(criteria).pipe(
       catchError(error => {
         console.error('Error fetching message metrics', error);
+        // Check for CORS or network issues
+        if (error.name === 'HttpErrorResponse') {
+          console.error('This appears to be a network or CORS issue. Check browser console for details.');
+        }
         return of([]);
+      }),
+      finalize(() => {
+        this.isRefreshing = false;
+        console.log('Refresh completed at:', new Date().toISOString());
       })
-    ).subscribe(metrics => {
-      this.messageMetricsSubject.next(metrics);
-      
-      // Process the raw metrics into our derived metrics
-      this.processGlobalMetrics(metrics);
-      this.processPhoneMetrics(metrics);
-      this.processTimeSeriesMetrics(metrics);
+    ).subscribe({
+      next: metrics => {
+        console.log(`Received ${metrics.length} metric records`);
+        this.messageMetricsSubject.next(metrics);
+        
+        // Process the raw metrics into our derived metrics
+        this.processGlobalMetrics(metrics);
+        this.processPhoneMetrics(metrics);
+        this.processTimeSeriesMetrics(metrics);
+      },
+      error: err => {
+        console.error('Error in subscribe handler:', err);
+      }
     });
   }
 
   // Set up the automatic refresh interval
   private setupRefreshInterval(): void {
     // Clear any existing subscription
-    if (this.refreshSubscription) {
-      this.refreshSubscription.unsubscribe();
-    }
+    this.cleanupSubscriptions();
     
-    const refreshMs = this.filterCriteriaSubject.value.refreshInterval || 30000;
+    const refreshMs = this.filterCriteriaSubject.value.refreshInterval || 5000;
+    console.log(`Setting up refresh interval: ${refreshMs}ms`);
     
     // Don't set up interval if refresh is disabled (0 or negative)
-    if (refreshMs <= 0) return;
+    if (refreshMs <= 0) {
+      console.log('Refresh interval is disabled');
+      return;
+    }
     
     this.refreshSubscription = interval(refreshMs).pipe(
-      tap(() => this.refreshData())
+      tap(() => {
+        console.log('Refresh interval triggered');
+        this.refreshData();
+      })
     ).subscribe();
+  }
+  
+  private cleanupSubscriptions(): void {
+    if (this.refreshSubscription) {
+      console.log('Cleaning up previous refresh subscription');
+      this.refreshSubscription.unsubscribe();
+      this.refreshSubscription = null;
+    }
   }
   
   // Transform raw message metrics into global summary
@@ -106,30 +157,32 @@ export class MetricsService {
       : 1;
     
     // Use the global bucket status data if available
-    this.apiService.getBucketStatus(metrics[0].phoneNumber).pipe(
-      catchError(() => of(null))
-    ).subscribe(status => {
-      if (status) {
-        this.globalBucketStatus = {
-          globalCurrentTokens: status.globalCurrentTokens,
-          globalMaxTokens: status.globalMaxTokens,
-          globalRefillRate: status.globalRefillRate,
-          globalLastUsed: status.globalLastUsed
+    if (metrics.length > 0) {
+      this.apiService.getBucketStatus(metrics[0].phoneNumber).pipe(
+        catchError(() => of(null))
+      ).subscribe(status => {
+        if (status) {
+          this.globalBucketStatus = {
+            globalCurrentTokens: status.globalCurrentTokens,
+            globalMaxTokens: status.globalMaxTokens,
+            globalRefillRate: status.globalRefillRate,
+            globalLastUsed: status.globalLastUsed
+          };
+        }
+        
+        const globalMetrics: GlobalMetrics = {
+          totalRequests,
+          acceptedRequests,
+          rejectedRequests,
+          percentAccepted: totalRequests > 0 ? (acceptedRequests / totalRequests) * 100 : 0,
+          requestsPerSecond: totalRequests / Math.max(1, timeSpan),
+          currentTokens: this.globalBucketStatus?.globalCurrentTokens || 0,
+          maxTokens: this.globalBucketStatus?.globalMaxTokens || 0
         };
-      }
-      
-      const globalMetrics: GlobalMetrics = {
-        totalRequests,
-        acceptedRequests,
-        rejectedRequests,
-        percentAccepted: totalRequests > 0 ? (acceptedRequests / totalRequests) * 100 : 0,
-        requestsPerSecond: totalRequests / Math.max(1, timeSpan),
-        currentTokens: this.globalBucketStatus?.globalCurrentTokens || 0,
-        maxTokens: this.globalBucketStatus?.globalMaxTokens || 0
-      };
-      
-      this.globalMetricsSubject.next(globalMetrics);
-    });
+        
+        this.globalMetricsSubject.next(globalMetrics);
+      });
+    }
   }
   
   // Transform raw message metrics into phone number summaries
@@ -215,28 +268,45 @@ export class MetricsService {
   
   // Process time-series data for charts
   private processTimeSeriesMetrics(metrics: MessageMetrics[]): void {
-    // Group by timestamp (rounded to the minute for readability)
+    // Group by timestamp with higher resolution (10-second intervals)
     const timeMap = new Map<number, {
       requests: number,
       accepted: number,
       rejected: number
     }>();
     
+    // Handle case if no metrics
+    if (!metrics || metrics.length === 0) {
+      this.timeSeriesSubject.next([]);
+      return;
+    }
+    
+    // Calculate max and min timestamp for proper time bucketing
+    const timestamps = metrics.map(m => m.timestamp.getTime());
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    
+    // Add entries for each 10 second interval to ensure we have enough points
+    // This ensures the chart shows a continuous line even without data for every interval
+    const interval = 10 * 1000; // 10 seconds in milliseconds
+    for (let t = minTime; t <= maxTime; t += interval) {
+      timeMap.set(t, { requests: 0, accepted: 0, rejected: 0 });
+    }
+    
     metrics.forEach(metric => {
-      // Round to the minute
-      const roundedTime = new Date(metric.timestamp);
-      roundedTime.setSeconds(0, 0);
-      const timeKey = roundedTime.getTime();
+      // Round to nearest 10-second interval for better resolution
+      const timestamp = metric.timestamp.getTime();
+      const roundedTime = Math.floor(timestamp / interval) * interval;
       
-      if (!timeMap.has(timeKey)) {
-        timeMap.set(timeKey, {
+      if (!timeMap.has(roundedTime)) {
+        timeMap.set(roundedTime, {
           requests: 0,
           accepted: 0,
           rejected: 0
         });
       }
       
-      const data = timeMap.get(timeKey)!;
+      const data = timeMap.get(roundedTime)!;
       data.requests += metric.requestCount;
       data.accepted += metric.acceptedCount;
       data.rejected += metric.rejectedCount;
@@ -252,6 +322,20 @@ export class MetricsService {
       }))
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       
+    // Ensure we have at least two data points for a proper line
+    if (timeSeries.length === 1) {
+      // Add a second point slightly after the single point
+      const singlePoint = timeSeries[0];
+      const newPoint = {
+        timestamp: new Date(singlePoint.timestamp.getTime() + 10000), // 10 seconds later
+        requests: 0,
+        accepted: 0,
+        rejected: 0
+      };
+      timeSeries.push(newPoint);
+    }
+    
+    console.log(`Time series data generated: ${timeSeries.length} points, from ${timeSeries[0]?.timestamp.toISOString()} to ${timeSeries[timeSeries.length-1]?.timestamp.toISOString()}`);
     this.timeSeriesSubject.next(timeSeries);
   }
   

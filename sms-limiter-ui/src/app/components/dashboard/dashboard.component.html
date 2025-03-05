@@ -6,9 +6,13 @@
     <div class="dashboard-header">
       <h1>SMS Rate Limiter Dashboard</h1>
       <div class="actions">
-        <button mat-raised-button color="primary" (click)="onRefreshData()">
+        <button mat-raised-button color="primary" (click)="onRefreshData()" [disabled]="isRefreshing">
           <mat-icon>refresh</mat-icon> Refresh
+          <mat-icon *ngIf="isRefreshing" class="rotating">sync</mat-icon>
         </button>
+        <div class="last-updated" *ngIf="lastRefreshed">
+          Last updated: {{ lastRefreshed | date:'HH:mm:ss' }}
+        </div>
       </div>
     </div>
     
@@ -71,7 +75,10 @@
           </mat-card-content>
           
           <mat-card-content *ngIf="!globalMetrics">
-            <div class="no-data-message">No global metrics available</div>
+            <div class="no-data-message">
+              <mat-icon>info</mat-icon>
+              No global metrics available. Start sending requests to generate data.
+            </div>
           </mat-card-content>
         </mat-card>
       </div>
