@@ -8,11 +8,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp",
-        builder => builder
-            .WithOrigins("http://localhost:4200")
+        policy => policy
+            .WithOrigins("http://127.0.0.1:4200")
             .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials());
+            .AllowAnyHeader());
 });
 
 builder.Services.AddControllers();
@@ -38,6 +37,7 @@ builder.Services.AddSingleton(rateLimiterConfig);
 builder.Services.AddSingleton<ITokenBucketProvider, LocalTokenBucketProvider>();
 builder.Services.AddSingleton<IRateLimiterService, RateLimiterService>();
 builder.Services.AddHostedService(sp => (LocalTokenBucketProvider)sp.GetRequiredService<ITokenBucketProvider>());
+builder.Services.AddSingleton<HttpClient>();
 
 var app = builder.Build();
 
@@ -53,10 +53,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseStaticFiles();
-app.UseRouting(); 
-app.UseCors("AllowAngularApp");
 
+app.UseRouting();
+app.UseCors("AllowAngularApp");
 
 app.MapControllers();
 
