@@ -6,7 +6,7 @@ using SMSRateLimiter.API.Models;
 using SMSRateLimiter.Core.Interfaces;
 using Xunit;
 
-namespace SMSRateLimiter.API.Tests.Controllers;
+namespace SMSRateLimiter.API.Controllers.Tests;
 
 public class RateLimiterControllerTests
 {

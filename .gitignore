@@ -27,3 +27,5 @@ bld/
 .fake
 
 .vscode
+
+SMSRateLimiter.LoadTest/LoadTestResults

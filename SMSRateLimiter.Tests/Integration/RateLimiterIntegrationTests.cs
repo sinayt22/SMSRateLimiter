@@ -8,7 +8,7 @@ using SMSRateLimiter.Core.Interfaces;
 using SMSRateLimiter.Core.Services;
 using Xunit.Abstractions;
 
-namespace SMSRateLimiter.Tests.Integration;
+namespace SMSRateLimiter.Integration.Tests;
 
 public class RateLimiterIntegrationTests : IClassFixture<WebApplicationFactory<TestProgram>>
 {
