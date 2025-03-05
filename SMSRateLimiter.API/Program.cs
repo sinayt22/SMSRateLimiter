@@ -28,7 +28,14 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngularApp",
+        builder => builder
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+});
 
 var rateLimiterConfig = new RateLimiterConfig();
 builder.Configuration.GetSection("RateLimiter").Bind(rateLimiterConfig);
@@ -53,7 +60,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
-
+app.UseCors("AllowAngularApp");
 // app.UseHttpsRedirection();
 app.MapControllers();
 
