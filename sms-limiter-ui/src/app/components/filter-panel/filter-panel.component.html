@@ -21,18 +21,31 @@
         
         <div class="filter-column">
           <mat-form-field appearance="outline">
-            <mat-label>Start Date</mat-label>
-            <input matInput [matDatepicker]="startPicker" formControlName="startDate">
-            <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
-            <mat-datepicker #startPicker></mat-datepicker>
+            <mat-label>Time Range</mat-label>
+            <mat-select formControlName="timeRange">
+              <mat-option *ngFor="let range of timeRanges" [value]="range.value">
+                {{ range.label }}
+              </mat-option>
+            </mat-select>
           </mat-form-field>
           
-          <mat-form-field appearance="outline">
-            <mat-label>End Date</mat-label>
-            <input matInput [matDatepicker]="endPicker" formControlName="endDate">
-            <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
-            <mat-datepicker #endPicker></mat-datepicker>
-          </mat-form-field>
+          <div class="custom-date-range" *ngIf="showCustomDateRange">
+            <mat-form-field appearance="outline" class="date-field">
+              <mat-label>Start Date</mat-label>
+              <input matInput [matDatepicker]="startPicker" formControlName="startDate">
+              <mat-hint>Local time: 00:00:00</mat-hint>
+              <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+              <mat-datepicker #startPicker></mat-datepicker>
+            </mat-form-field>
+            
+            <mat-form-field appearance="outline" class="date-field">
+              <mat-label>End Date</mat-label>
+              <input matInput [matDatepicker]="endPicker" formControlName="endDate">
+              <mat-hint>Local time: 23:59:59</mat-hint>
+              <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+              <mat-datepicker #endPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
         </div>
         
         <div class="filter-column">

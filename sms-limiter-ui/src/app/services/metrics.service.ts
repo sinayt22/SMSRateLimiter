@@ -46,8 +46,27 @@ export class MetricsService implements OnDestroy {
   // Update filter criteria and refresh data
   updateFilterCriteria(criteria: Partial<FilterCriteria>): void {
     console.log('Updating filter criteria:', criteria);
+    
+    // Ensure dates are properly formatted as Date objects
+    if (criteria.startDate && !(criteria.startDate instanceof Date)) {
+      criteria.startDate = new Date(criteria.startDate);
+    }
+    
+    if (criteria.endDate && !(criteria.endDate instanceof Date)) {
+      criteria.endDate = new Date(criteria.endDate);
+    }
+    
     const currentCriteria = this.filterCriteriaSubject.value;
     const newCriteria = { ...currentCriteria, ...criteria };
+    
+    // Log the date filtering ranges in local time for debugging
+    if (newCriteria.startDate) {
+      console.log(`Filter start date (local): ${newCriteria.startDate.toLocaleString()}`);
+    }
+    if (newCriteria.endDate) {
+      console.log(`Filter end date (local): ${newCriteria.endDate.toLocaleString()}`);
+    }
+    
     this.filterCriteriaSubject.next(newCriteria);
     
     // If the refresh interval changed, update the timer
@@ -335,7 +354,12 @@ export class MetricsService implements OnDestroy {
       timeSeries.push(newPoint);
     }
     
-    console.log(`Time series data generated: ${timeSeries.length} points, from ${timeSeries[0]?.timestamp.toISOString()} to ${timeSeries[timeSeries.length-1]?.timestamp.toISOString()}`);
+    console.log(`Time series data generated: ${timeSeries.length} points`);
+    if (timeSeries.length > 0) {
+      console.log(`First point (local time): ${timeSeries[0].timestamp.toLocaleString()}`);
+      console.log(`Last point (local time): ${timeSeries[timeSeries.length-1].timestamp.toLocaleString()}`);
+    }
+    
     this.timeSeriesSubject.next(timeSeries);
   }
   

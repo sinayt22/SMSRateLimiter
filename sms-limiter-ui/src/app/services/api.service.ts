@@ -45,12 +45,20 @@ export class ApiService {
       params = params.set('phoneNumber', criteria.phoneNumber);
     }
     
+    // Convert local date to UTC ISO string for API
     if (criteria.startDate) {
-      params = params.set('startDate', criteria.startDate.toISOString());
+      // Create a copy of the date to avoid modifying the original
+      const startDate = new Date(criteria.startDate);
+      params = params.set('startDate', startDate.toISOString());
+      console.log(`Start date (local): ${startDate.toLocaleString()}, (ISO): ${startDate.toISOString()}`);
     }
     
     if (criteria.endDate) {
-      params = params.set('endDate', criteria.endDate.toISOString());
+      // Create a copy of the date and set it to the end of the day in local time
+      const endDate = new Date(criteria.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      params = params.set('endDate', endDate.toISOString());
+      console.log(`End date (local): ${endDate.toLocaleString()}, (ISO): ${endDate.toISOString()}`);
     }
     
     // Add a cache-busting parameter to prevent browser caching

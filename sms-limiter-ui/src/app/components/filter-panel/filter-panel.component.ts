@@ -15,6 +15,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-filter-panel',
@@ -29,7 +31,9 @@ import { MatIconModule } from '@angular/material/icon';
     MatDatepickerModule,
     MatNativeDateModule,
     MatButtonModule,
-    MatIconModule
+    MatIconModule,
+    MatButtonToggleModule,
+    MatTooltipModule
   ],
   templateUrl: './filter-panel.component.html',
   styleUrl: './filter-panel.component.scss'
@@ -50,16 +54,31 @@ export class FilterPanelComponent implements OnInit, OnDestroy {
     { value: 300000, label: '5 minutes' }
   ];
   
+  timeRanges = [
+    { value: 'last-hour', label: 'Last Hour' },
+    { value: 'last-6-hours', label: 'Last 6 Hours' },
+    { value: 'last-day', label: 'Last 24 Hours' },
+    { value: 'last-week', label: 'Last 7 Days' },
+    { value: 'custom', label: 'Custom Range' }
+  ];
+  
+  showCustomDateRange = false;
+  
   private destroy$ = new Subject<void>();
 
   constructor(
     private fb: FormBuilder,
     private apiService: ApiService
   ) {
+    // Default to one hour time range
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 3600000);
+    
     this.filterForm = this.fb.group({
       phoneNumber: [''],
-      startDate: [new Date(new Date().getTime() - 3600000)], // Last hour
-      endDate: [new Date()],
+      timeRange: ['last-hour'],
+      startDate: [oneHourAgo],
+      endDate: [now],
       refreshInterval: [30000]
     });
   }
@@ -67,8 +86,29 @@ export class FilterPanelComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Set initial form values from input
     if (this.criteria) {
+      // Determine if we have a custom time range
+      let timeRange = 'last-hour';
+      if (this.criteria.startDate && this.criteria.endDate) {
+        const now = new Date();
+        const diffHours = (now.getTime() - this.criteria.startDate.getTime()) / (1000 * 60 * 60);
+        
+        if (Math.abs(diffHours - 1) < 0.1) {
+          timeRange = 'last-hour';
+        } else if (Math.abs(diffHours - 6) < 0.1) {
+          timeRange = 'last-6-hours';
+        } else if (Math.abs(diffHours - 24) < 0.1) {
+          timeRange = 'last-day';
+        } else if (Math.abs(diffHours - 168) < 0.1) {
+          timeRange = 'last-week';
+        } else {
+          timeRange = 'custom';
+          this.showCustomDateRange = true;
+        }
+      }
+      
       this.filterForm.patchValue({
         phoneNumber: this.criteria.phoneNumber || '',
+        timeRange: timeRange,
         startDate: this.criteria.startDate || new Date(new Date().getTime() - 3600000),
         endDate: this.criteria.endDate || new Date(),
         refreshInterval: this.criteria.refreshInterval || 30000
@@ -76,10 +116,38 @@ export class FilterPanelComponent implements OnInit, OnDestroy {
     }
     
     // React to form changes
-    this.filterForm.valueChanges.pipe(
+    this.filterForm.get('timeRange')?.valueChanges.pipe(
       takeUntil(this.destroy$)
-    ).subscribe(values => {
-      this.criteriaChange.emit(values as FilterCriteria);
+    ).subscribe(value => {
+      this.showCustomDateRange = value === 'custom';
+      
+      if (value !== 'custom') {
+        // Set the date range based on selected preset
+        const now = new Date();
+        let startDate: Date;
+        
+        switch (value) {
+          case 'last-hour':
+            startDate = new Date(now.getTime() - 3600000); // 1 hour
+            break;
+          case 'last-6-hours':
+            startDate = new Date(now.getTime() - 21600000); // 6 hours
+            break;
+          case 'last-day':
+            startDate = new Date(now.getTime() - 86400000); // 24 hours
+            break;
+          case 'last-week':
+            startDate = new Date(now.getTime() - 604800000); // 7 days
+            break;
+          default:
+            startDate = new Date(now.getTime() - 3600000); // Default to 1 hour
+        }
+        
+        this.filterForm.patchValue({
+          startDate: startDate,
+          endDate: now
+        });
+      }
     });
     
     // Load phone numbers
@@ -92,26 +160,42 @@ export class FilterPanelComponent implements OnInit, OnDestroy {
   }
   
   applyFilters(): void {
-    this.criteriaChange.emit(this.filterForm.value as FilterCriteria);
+    const formValues = this.filterForm.value;
+    
+    // Build the criteria object
+    const criteria: FilterCriteria = {
+      phoneNumber: formValues.phoneNumber,
+      startDate: formValues.startDate,
+      endDate: formValues.endDate,
+      refreshInterval: formValues.refreshInterval
+    };
+    
+    console.log('Applying filters:', criteria);
+    this.criteriaChange.emit(criteria);
   }
   
   resetFilters(): void {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 3600000);
+    
     this.filterForm.patchValue({
       phoneNumber: '',
-      startDate: new Date(new Date().getTime() - 3600000),
-      endDate: new Date()
+      timeRange: 'last-hour',
+      startDate: oneHourAgo,
+      endDate: now
     });
+    
     this.applyFilters();
   }
   
   private loadPhoneNumbers(): void {
-    this.apiService.getPhoneNumbers().subscribe(
-      phoneNumbers => {
+    this.apiService.getPhoneNumbers().subscribe({
+      next: phoneNumbers => {
         this.phoneNumbers = phoneNumbers;
       },
-      error => {
+      error: error => {
         console.error('Error loading phone numbers', error);
       }
-    );
+    });
   }
 }
