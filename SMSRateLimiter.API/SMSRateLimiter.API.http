@@ -1,6 +1,37 @@
-@SMSRateLimiter.API_HostAddress = http://localhost:5139
+@host = http://localhost:5139
 
-GET {{SMSRateLimiter.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Check Rate Limit - Valid Phone Number
+POST {{host}}/api/ratelimiter/check
+Content-Type: application/json
 
-###
+{
+    "phoneNumber": "+1234567890"
+}
+
+### Check Rate Limit - Invalid Phone Number
+POST {{host}}/api/ratelimiter/check
+Content-Type: application/json
+
+{
+    "phoneNumber": "invalid-number"
+}
+
+### Check Rate Limit - Empty Phone Number
+POST {{host}}/api/ratelimiter/check
+Content-Type: application/json
+
+{
+    "phoneNumber": ""
+}
+
+### Get Bucket Status - Valid Phone Number
+GET {{host}}/api/ratelimiter/status/+1234567890
+
+### Get Bucket Status - Invalid Phone Number
+GET {{host}}/api/ratelimiter/status/invalid-number
+
+### Get Bucket Status - International Number
+GET {{host}}/api/ratelimiter/status/+447911123456
+
+### Get Bucket Status - Empty Phone Number
+GET {{host}}/api/ratelimiter/status/

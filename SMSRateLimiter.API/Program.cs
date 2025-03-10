@@ -37,7 +37,6 @@ builder.Services.AddSingleton(rateLimiterConfig);
 builder.Services.AddSingleton<ITokenBucketProvider, LocalTokenBucketProvider>();
 builder.Services.AddSingleton<IRateLimiterService, RateLimiterService>();
 builder.Services.AddHostedService(sp => (LocalTokenBucketProvider)sp.GetRequiredService<ITokenBucketProvider>());
-builder.Services.AddSingleton<HttpClient>();
 
 var app = builder.Build();
 
@@ -54,9 +53,9 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
-app.UseRouting();
 app.UseCors("AllowAngularApp");
 
+app.UseRouting();
 app.MapControllers();
 
 app.Run();
