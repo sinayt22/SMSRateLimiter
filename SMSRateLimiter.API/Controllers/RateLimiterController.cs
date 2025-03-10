@@ -18,7 +18,7 @@ public class RateLimiterController : ControllerBase
     private readonly IRateLimiterService _rateLimiterService;
     private readonly ILogger<RateLimiterController> _logger;
     private static readonly Regex PhoneRegex = new(@"^\+?[1-9]\d{1,14}$", RegexOptions.Compiled);
-    private static readonly HttpClient _httpClient = new HttpClient();
+    private readonly IHttpClientFactory _clientFactory;
 
     /// <summary>
     /// Creates a new instance of the RateLimiterController
@@ -27,10 +27,12 @@ public class RateLimiterController : ControllerBase
     /// <param name="logger">The logger</param>
     public RateLimiterController(
         IRateLimiterService rateLimiterService,
-        ILogger<RateLimiterController> logger)
+        ILogger<RateLimiterController> logger,
+        IHttpClientFactory httpClientFactory)
     {
         _rateLimiterService = rateLimiterService;
         _logger = logger;
+        _clientFactory = httpClientFactory;
     }
 
     /// <summary>
@@ -139,7 +141,8 @@ public class RateLimiterController : ControllerBase
         var baseAddress = $"{Request.Scheme}://{Request.Host}";
         
         // Send to metrics endpoint
-        var response = await _httpClient.PostAsJsonAsync(
+        var client = _clientFactory.CreateClient("MetricsClient");
+        var response = await client.PostAsJsonAsync(
             $"{baseAddress}/api/Metrics/messages", 
             metric);
             

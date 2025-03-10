@@ -9,11 +9,25 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp",
         policy => policy
-            .WithOrigins("http://127.0.0.1:4200", "http://localhost:4200")
+            .WithOrigins(
+                "http://127.0.0.1:4200", "https://127.0.0.1:4200",
+                "http://localhost:4200", "https://localhost:4200")
             .AllowAnyMethod()
             .AllowAnyHeader());
 });
 
+builder.Services.AddHttpClient("MetricsClient")
+    .ConfigurePrimaryHttpMessageHandler(() =>
+    {
+        var handler = new HttpClientHandler();
+        if (builder.Environment.IsDevelopment())
+        {
+            handler.ServerCertificateCustomValidationCallback = 
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
+        return handler;
+    });
+// builder.Services.AddHttpClient();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -50,6 +64,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseHttpsRedirection();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
