@@ -52,6 +52,16 @@ export class MetricsChartComponent implements OnInit, OnChanges {
         type: 'datetime',
         title: {
           text: 'Time'
+        },
+        dateTimeLabelFormats: {
+          millisecond: '%H:%M:%S.%L',
+          second: '%H:%M:%S',
+          minute: '%H:%M',
+          hour: '%H:%M',
+          day: '%e. %b',
+          week: '%e. %b',
+          month: '%b \'%y',
+          year: '%Y'
         }
       },
       yAxis: {
@@ -62,8 +72,12 @@ export class MetricsChartComponent implements OnInit, OnChanges {
       },
       tooltip: {
         shared: true,
-        valueDecimals: 0
+        valueDecimals: 0,
+        xDateFormat: '%Y-%m-%d %H:%M:%S',
+        useHTML: true
       },
+      // We'll use a different approach for timezone handling
+      // by adjusting the timestamps directly
       plotOptions: {
         area: {
           stacking: 'normal',
@@ -103,9 +117,14 @@ export class MetricsChartComponent implements OnInit, OnChanges {
     const rejectedData: [number, number][] = [];
     
     this.timeSeriesData.forEach(point => {
+      // Apply timezone offset to get local time representation
+      // This compensates for Highcharts' UTC default interpretation
       const timestamp = point.timestamp.getTime();
-      acceptedData.push([timestamp, point.accepted]);
-      rejectedData.push([timestamp, point.rejected]);
+      const timezoneOffset = point.timestamp.getTimezoneOffset() * 60000; // convert minutes to milliseconds
+      const adjustedTimestamp = timestamp - timezoneOffset;
+      
+      acceptedData.push([adjustedTimestamp, point.accepted]);
+      rejectedData.push([adjustedTimestamp, point.rejected]);
     });
     
     this.chartOptions = {
