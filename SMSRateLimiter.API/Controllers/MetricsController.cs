@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Cors;
-using SMSRateLimiter.Core.Interfaces;
-using System.Text.RegularExpressions;
+using SMSRateLimiter.API.Models;
 using System.Collections.Concurrent;
 
 namespace SMSRateLimiter.API.Controllers;
@@ -13,7 +11,6 @@ namespace SMSRateLimiter.API.Controllers;
 [Route("api/[controller]")]
 public class MetricsController : ControllerBase
 {
-    private readonly ITokenBucketProvider _tokenBucketProvider;
     private readonly ILogger<MetricsController> _logger;
     
     // Thread-safe collection to store metrics
@@ -25,10 +22,8 @@ public class MetricsController : ControllerBase
     /// <param name="tokenBucketProvider">The token bucket provider</param>
     /// <param name="logger">The logger</param>
     public MetricsController(
-        ITokenBucketProvider tokenBucketProvider,
         ILogger<MetricsController> logger)
     {
-        _tokenBucketProvider = tokenBucketProvider;
         _logger = logger;
     }
 
@@ -164,41 +159,7 @@ public class MetricsController : ControllerBase
     public IActionResult ClearMetrics()
     {
         var oldCount = _messageMetrics.Count;
-        
-        // Clear all metrics - create a new empty collection
-        while (_messageMetrics.TryTake(out _)) { }
-        
+        _messageMetrics.Clear();
         return Ok(new { message = $"Cleared {oldCount} metrics" });
     }
-}
-
-/// <summary>
-/// Represents a message metric record
-/// </summary>
-public class MessageMetric
-{
-    /// <summary>
-    /// Gets or sets the timestamp when the metric was recorded
-    /// </summary>
-    public DateTimeOffset Timestamp { get; set; }
-    
-    /// <summary>
-    /// Gets or sets the phone number
-    /// </summary>
-    public required string PhoneNumber { get; set; }
-    
-    /// <summary>
-    /// Gets or sets the total number of requests
-    /// </summary>
-    public int RequestCount { get; set; }
-    
-    /// <summary>
-    /// Gets or sets the number of accepted requests
-    /// </summary>
-    public int AcceptedCount { get; set; }
-    
-    /// <summary>
-    /// Gets or sets the number of rejected requests
-    /// </summary>
-    public int RejectedCount { get; set; }
 }

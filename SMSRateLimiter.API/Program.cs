@@ -27,7 +27,7 @@ builder.Services.AddHttpClient("MetricsClient")
         }
         return handler;
     });
-// builder.Services.AddHttpClient();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
