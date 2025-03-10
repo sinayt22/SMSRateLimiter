@@ -8,15 +8,35 @@
     <form [formGroup]="filterForm" (ngSubmit)="applyFilters()">
       <div class="filter-form">
         <div class="filter-column">
-          <mat-form-field appearance="outline">
-            <mat-label>Phone Number</mat-label>
-            <mat-select formControlName="phoneNumber">
-              <mat-option [value]="">All Phone Numbers</mat-option>
-              <mat-option *ngFor="let number of phoneNumbers" [value]="number">
-                {{ number }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
+          <div class="phone-number-container">
+            <mat-form-field appearance="outline" class="phone-number-field">
+              <mat-label>Phone Number</mat-label>
+              <mat-select formControlName="phoneNumber">
+                <mat-option [value]="">All Phone Numbers</mat-option>
+                <mat-option *ngFor="let number of phoneNumbers" [value]="number">
+                  {{ number }}
+                </mat-option>
+              </mat-select>
+              <mat-hint *ngIf="phoneNumbers.length > 0">
+                {{ phoneNumbers.length }} phone numbers available
+              </mat-hint>
+              <mat-hint *ngIf="isLoadingPhoneNumbers">
+                Loading phone numbers...
+              </mat-hint>
+            </mat-form-field>
+            <button 
+              type="button" 
+              mat-icon-button 
+              class="refresh-button" 
+              matTooltip="Refresh phone numbers list"
+              [disabled]="isLoadingPhoneNumbers"
+              (click)="refreshPhoneNumbers()">
+              <mat-icon [class.rotating]="isLoadingPhoneNumbers">refresh</mat-icon>
+            </button>
+          </div>
+          <div class="last-update" *ngIf="phoneNumbers.length > 0">
+            Last updated: {{ lastPhoneNumbersUpdate | date:'HH:mm:ss' }}
+          </div>
         </div>
         
         <div class="filter-column">
@@ -56,6 +76,7 @@
                 {{ interval.label }}
               </mat-option>
             </mat-select>
+            <mat-hint>Also affects phone number list updates</mat-hint>
           </mat-form-field>
           
           <div class="filter-actions">

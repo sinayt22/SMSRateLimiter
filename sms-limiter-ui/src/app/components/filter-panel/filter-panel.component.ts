@@ -2,7 +2,7 @@
 import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, interval, takeUntil, merge } from 'rxjs';
 import { FilterCriteria } from '../../models/filter-criteria';
 import { ApiService } from '../../services/api.service';
 
@@ -63,8 +63,11 @@ export class FilterPanelComponent implements OnInit, OnDestroy {
   ];
   
   showCustomDateRange = false;
+  isLoadingPhoneNumbers = false;
+  lastPhoneNumbersUpdate = new Date();
   
   private destroy$ = new Subject<void>();
+  private phoneNumberRefreshInterval = 30000; // 30 seconds
 
   constructor(
     private fb: FormBuilder,
@@ -150,8 +153,34 @@ export class FilterPanelComponent implements OnInit, OnDestroy {
       }
     });
     
-    // Load phone numbers
+    // Watch for refresh interval changes to update phone numbers refresh rate
+    this.filterForm.get('refreshInterval')?.valueChanges.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(value => {
+      // Update phone numbers refresh interval based on data refresh interval
+      // (but don't make it shorter than 30 seconds to avoid too many API calls)
+      if (value && value > 0) {
+        this.phoneNumberRefreshInterval = Math.max(30000, value);
+      } else {
+        // If auto-refresh is disabled, still check for new numbers every 2 minutes
+        this.phoneNumberRefreshInterval = 120000;
+      }
+    });
+    
+    // Initial phone numbers load
     this.loadPhoneNumbers();
+    
+    // Set up periodic refresh of phone numbers list
+    merge(
+      // Refresh on a regular interval
+      interval(this.phoneNumberRefreshInterval),
+      // Also refresh when the form's refresh interval changes
+      this.filterForm.get('refreshInterval')?.valueChanges || []
+    )
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(() => {
+      this.loadPhoneNumbers();
+    });
   }
 
   ngOnDestroy(): void {
@@ -188,13 +217,46 @@ export class FilterPanelComponent implements OnInit, OnDestroy {
     this.applyFilters();
   }
   
-  private loadPhoneNumbers(): void {
+  refreshPhoneNumbers(): void {
+    this.loadPhoneNumbers(true);
+  }
+  
+  private loadPhoneNumbers(forceRefresh = false): void {
+    // Avoid too frequent refreshes unless forced
+    const now = new Date();
+    const timeSinceLastUpdate = now.getTime() - this.lastPhoneNumbersUpdate.getTime();
+    
+    if (!forceRefresh && timeSinceLastUpdate < 5000) {
+      console.log('Skipping phone numbers refresh - too soon since last update');
+      return;
+    }
+    
+    this.isLoadingPhoneNumbers = true;
+    
     this.apiService.getPhoneNumbers().subscribe({
       next: phoneNumbers => {
-        this.phoneNumbers = phoneNumbers;
+        // Only update if there are changes
+        if (JSON.stringify(this.phoneNumbers) !== JSON.stringify(phoneNumbers)) {
+          console.log(`Phone numbers list updated: ${phoneNumbers.length} numbers available`);
+          
+          // Get the currently selected value
+          const currentValue = this.filterForm.get('phoneNumber')?.value;
+          
+          // Sort the phone numbers for better UX
+          this.phoneNumbers = phoneNumbers.sort();
+          
+          // If the currently selected value is no longer in the list, reset to "All"
+          if (currentValue && !phoneNumbers.includes(currentValue)) {
+            this.filterForm.patchValue({ phoneNumber: '' });
+          }
+        }
+        
+        this.isLoadingPhoneNumbers = false;
+        this.lastPhoneNumbersUpdate = new Date();
       },
       error: error => {
         console.error('Error loading phone numbers', error);
+        this.isLoadingPhoneNumbers = false;
       }
     });
   }

@@ -19,6 +19,28 @@
   }
 }
 
+.phone-number-container {
+  display: flex;
+  align-items: center;
+  
+  .phone-number-field {
+    flex: 1;
+  }
+  
+  .refresh-button {
+    margin-left: 8px;
+    margin-bottom: 8px;
+  }
+}
+
+.last-update {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.54);
+  margin-top: -8px;
+  margin-bottom: 8px;
+  margin-left: 4px;
+}
+
 .custom-date-range {
   display: flex;
   gap: 12px;
@@ -48,6 +70,16 @@
   .mat-button-toggle {
     min-width: 80px;
   }
+}
+
+/* Animation for the refresh icon */
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.rotating {
+  animation: rotate 1s linear infinite;
 }
 
 @media (max-width: 960px) {
